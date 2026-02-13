@@ -1,0 +1,17 @@
+# Build artifacts
+*.exe
+*.obj
+*.res
+*.ilk
+*.pdb
+
+# Claude
+.claude/
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*~

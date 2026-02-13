@@ -1,0 +1,224 @@
+# MouseFlip
+
+A lightweight Windows system tray application that allows you to quickly toggle mouse button configuration between right-handed and left-handed modes.
+
+**Cross-compiled on Linux using MinGW-w64 for Windows targets.**
+
+## Features
+
+- **Quick Toggle**: Double-click the tray icon with either mouse button to instantly flip mouse buttons
+- **Visual Feedback**: Icon changes to reflect current mouse orientation
+- **Auto-Switch**: Automatically switches mouse orientation based on display configuration
+  - Right-handed when using laptop screen only
+  - Left-handed when external display connected or lid closed
+- **Startup with Windows**: Optional setting to launch automatically when Windows starts
+- **Context Menu**: Right-click for menu with orientation options, settings, about dialog, and exit
+- **Lightweight**: Minimal resource usage, runs silently in system tray
+- **Native**: Pure Win32 API, no external dependencies
+
+## Use Cases
+
+- Ambidextrous users who switch hands frequently
+- Shared computers with users who have different preferences
+- Accessibility needs requiring quick mouse configuration changes
+- Testing applications with different mouse button configurations
+
+## Requirements
+
+### Runtime
+- Windows 10 or Windows 11
+- No additional runtime dependencies required
+
+### Building
+- Ubuntu/Debian Linux (or WSL)
+- MinGW-w64 cross-compiler toolchain
+- GCC/G++ compiler
+
+## Building from Source
+
+### Installing MinGW-w64
+
+On Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install mingw-w64 g++
+```
+
+On other distributions, install the equivalent `mingw-w64` package.
+
+### Building
+
+1. **Clone or navigate to the project directory**
+   ```bash
+   cd mouseflip2
+   ```
+
+2. **Run the build script**
+   ```bash
+   ./build.sh
+   ```
+
+   The script will:
+   - Check for MinGW-w64 installation
+   - Compile resources with `windres`
+   - Compile and link with `x86_64-w64-mingw32-g++`
+   - Create `mouseflip.exe` in the project root
+
+### Manual Build Commands
+
+If you need to build manually:
+
+```bash
+# Compile resources
+x86_64-w64-mingw32-windres resources/mouseflip.rc -O coff -o resources/mouseflip.res
+
+# Compile and link
+x86_64-w64-mingw32-g++ -std=c++11 -Wall -Wextra -DUNICODE -D_UNICODE \
+     -mwindows \
+     src/mouseflip.cpp \
+     resources/mouseflip.res \
+     -o mouseflip.exe \
+     -luser32 -lshell32 -static-libgcc -static-libstdc++
+```
+
+## Usage
+
+### Running the Application
+
+1. Transfer `mouseflip.exe` to your Windows machine (or run via Wine on Linux)
+2. Double-click `mouseflip.exe`
+3. The application icon will appear in your system tray (notification area)
+
+### Operations
+
+- **Double-click tray icon** (with either mouse button): Toggle between right-handed and left-handed mouse modes
+- **Right-click tray icon**: Open context menu with the following options:
+  - **Right-handed**: Set mouse to right-handed mode (standard)
+  - **Left-handed**: Set mouse to left-handed mode (buttons swapped)
+  - **Options...**: Configure startup behavior and other settings
+  - **About**: Display application information
+  - **Exit**: Close the application and remove tray icon
+
+### Options Dialog
+
+Access the Options dialog by right-clicking the tray icon and selecting "Options...":
+
+**Startup Settings:**
+- **Start MouseFlip when Windows starts**: Enable this checkbox to automatically launch MouseFlip when you log in to Windows. The setting is stored in the Windows registry (HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run)
+
+**Auto-Switch Settings:**
+- **Auto-switch based on display configuration**: (**Enabled by default**) Automatically switches mouse orientation based on your display setup:
+  - **Right-handed mode**: When using only your laptop screen (lid open, no external displays)
+  - **Left-handed mode**: When an external display is connected OR when the laptop lid is closed
+  - The application monitors your display configuration every 2 seconds and switches automatically
+  - Useful for users who prefer different orientations when docked vs. mobile
+  - **To disable**: Simply uncheck this box in the Options dialog if you prefer manual control
+  - Settings stored in HKEY_CURRENT_USER\Software\MouseFlip
+
+### What Gets Changed
+
+When you flip the mouse orientation:
+- Left mouse button and right mouse button functions are swapped system-wide
+- The change persists until you flip it back or restart Windows
+- The tray icon updates to reflect the current state
+
+## Project Structure
+
+```
+mouseflip2/
+├── src/
+│   └── mouseflip.cpp          # Main application source
+├── resources/
+│   ├── mouseflip.rc           # Resource definition file
+│   ├── resource.h             # Resource ID constants
+│   ├── app_icon.ico           # Application icon
+│   ├── icon_right.ico         # Right-handed mouse icon
+│   └── icon_left.ico          # Left-handed mouse icon
+├── build.sh                   # Build script (Linux)
+└── README.md                  # This file
+```
+
+## Technical Details
+
+### Architecture
+- Pure Win32 API application
+- Window class with hidden window for message processing
+- System tray integration via `Shell_NotifyIcon`
+- Popup menu for user interaction
+- State synchronization with system settings
+
+### Key Windows APIs Used
+- `Shell_NotifyIcon()`: System tray icon management
+- `SwapMouseButton()`: Toggle mouse button configuration
+- `GetSystemMetrics(SM_SWAPBUTTON)`: Query current mouse state
+- `CreatePopupMenu()`, `TrackPopupMenu()`: Context menu
+- Standard window management APIs
+
+### Cross-Compilation
+- Built on Linux using MinGW-w64 (Minimalist GNU for Windows)
+- Targets Windows x64 platform
+- Static linking for portability (no DLL dependencies)
+- GCC/G++ compiler with Windows headers
+
+### State Management
+The application always queries the actual system state rather than maintaining internal state. This ensures the icon accurately reflects the current mouse configuration even if changed by other means (Control Panel, Settings app, other applications).
+
+## Compiler Flags Explained
+
+- `-std=c++11`: Use C++11 standard
+- `-Wall -Wextra`: Enable comprehensive warnings
+- `-DUNICODE -D_UNICODE`: Build with Unicode support
+- `-mwindows`: Build as Windows GUI application (no console)
+- `-static-libgcc -static-libstdc++`: Static linking for portability
+- `-luser32 -lshell32`: Link Windows system libraries
+
+## Troubleshooting
+
+### Build Issues
+
+**MinGW-w64 not found**
+- Install with: `sudo apt install mingw-w64`
+- Verify with: `x86_64-w64-mingw32-g++ --version`
+
+**windres command not found**
+- MinGW-w64 package includes windres
+- Check installation: `which x86_64-w64-mingw32-windres`
+
+**Compilation errors**
+- Ensure all source files are present
+- Check file permissions on build.sh
+- Review error output for specific issues
+
+### Runtime Issues (on Windows)
+
+**Application won't start**
+- Ensure you're running on Windows 10 or later
+- Try running as administrator (though it shouldn't be required)
+- Check Windows Event Viewer for errors
+
+**Icon doesn't appear in system tray**
+- Check Windows notification settings
+- Restart Windows Explorer: `Ctrl+Shift+Esc` → Windows Explorer → Restart
+- Ensure no other instance is already running
+
+**Icon doesn't update when mouse buttons change**
+- Try exiting and restarting the application
+- Check if another application is interfering
+
+## Known Limitations
+
+- Icon changes require system tray refresh in some cases
+- Setting persists until changed again or system restart
+- Only affects primary mouse device on multi-mouse systems
+
+## Contributing
+
+Feel free to fork and modify the code for your needs. Suggestions for improvements:
+- Keyboard shortcut support
+- Notification on orientation change
+- Sound feedback option
+
+## Credits
+
+Developed as a utility application for quick mouse button configuration changes.
+Built with MinGW-w64 cross-compiler on Linux.
