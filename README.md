@@ -50,7 +50,7 @@ On other distributions, install the equivalent `mingw-w64` package.
 
 1. **Clone or navigate to the project directory**
    ```bash
-   cd mouseflip2
+   cd mouseflip
    ```
 
 2. **Run the build script**
@@ -125,7 +125,7 @@ When you flip the mouse orientation:
 ## Project Structure
 
 ```
-mouseflip2/
+mouseflip/
 ├── src/
 │   └── mouseflip.cpp          # Main application source
 ├── resources/
