@@ -5,14 +5,13 @@
 #include <windows.h>
 #include <shellapi.h>
 #include "../resources/resource.h"
+#include "../resources/app_strings.h"
 
 // Global variables
-const wchar_t* CLASS_NAME = L"MouseFlipWindowClass";
-const wchar_t* APP_NAME = L"MouseFlip";
-const wchar_t* APP_VERSION = L"1.0";
+const wchar_t* CLASS_NAME = APP_WINDOW_CLASS;
 const wchar_t* REGISTRY_KEY = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
-const wchar_t* REGISTRY_VALUE = L"MouseFlip";
-const wchar_t* SETTINGS_REGISTRY_KEY = L"Software\\MouseFlip";
+const wchar_t* REGISTRY_VALUE = APP_REGISTRY_VALUE;
+const wchar_t* SETTINGS_REGISTRY_KEY = APP_SETTINGS_REGISTRY_KEY;
 const wchar_t* AUTOSWITCH_VALUE = L"AutoSwitch";
 NOTIFYICONDATA g_nid = {};
 HWND g_hwndMain = NULL;
@@ -190,7 +189,7 @@ void AddTrayIcon(HWND hwnd, UINT iconID) {
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     g_nid.uCallbackMessage = WM_TRAYICON;
     g_nid.hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(iconID));
-    wcsncpy(g_nid.szTip, L"MouseFlip - Double-click either button to flip",
+    wcsncpy(g_nid.szTip, APP_TRAY_TOOLTIP,
             sizeof(g_nid.szTip) / sizeof(wchar_t) - 1);
     g_nid.szTip[sizeof(g_nid.szTip) / sizeof(wchar_t) - 1] = L'\0';
 

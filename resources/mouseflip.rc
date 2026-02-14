@@ -1,5 +1,6 @@
 #include <windows.h>
 #include "resource.h"
+#include "app_strings.h"
 
 // Icons
 IDI_ICON_RIGHT ICON "icon_right.ico"
@@ -9,11 +10,11 @@ IDI_ICON_APP   ICON "app_icon.ico"
 // Options Dialog
 IDD_OPTIONS DIALOG 0, 0, 260, 160
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "MouseFlip Options"
+CAPTION APP_OPTIONS_DIALOG_CAPTION
 FONT 8, "MS Sans Serif"
 BEGIN
     GROUPBOX        "Startup", -1, 7, 7, 246, 40
-    AUTOCHECKBOX    "Start MouseFlip when Windows starts", IDC_STARTUP_CHECKBOX, 15, 22, 230, 10
+    AUTOCHECKBOX    APP_STARTUP_CHECKBOX_TEXT, IDC_STARTUP_CHECKBOX, 15, 22, 230, 10
     GROUPBOX        "Auto-Switch", -1, 7, 52, 246, 80
     AUTOCHECKBOX    "Auto-switch based on display configuration:", IDC_AUTOSWITCH_CHECKBOX, 15, 67, 230, 10
     LTEXT           "* Right-handed when laptop screen only", -1, 25, 82, 220, 10
@@ -26,7 +27,7 @@ END
 // About Dialog
 IDD_ABOUT DIALOG 0, 0, 240, 120
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "About MouseFlip"
+CAPTION APP_ABOUT_DIALOG_CAPTION
 FONT 8, "MS Sans Serif"
 BEGIN
     ICON            IDI_ICON_APP, IDC_ABOUT_ICON, 14, 14, 32, 32
