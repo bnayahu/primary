@@ -2,7 +2,8 @@
 #define APP_STRINGS_H
 
 // String building macros
-#define STRINGIFY(x) #x
+#define STRINGIFY_IMPL(x) #x
+#define STRINGIFY(x) STRINGIFY_IMPL(x)
 #define WIDEN2(x) L ## x
 #define WIDEN(x) WIDEN2(x)
 
