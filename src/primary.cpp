@@ -15,7 +15,7 @@ const wchar_t* SETTINGS_REGISTRY_KEY = APP_SETTINGS_REGISTRY_KEY;
 const wchar_t* AUTOSWITCH_VALUE = L"AutoSwitch";
 NOTIFYICONDATA g_nid = {};
 HWND g_hwndMain = NULL;
-bool g_lastDisplayState = false;  // Track last display configuration state
+bool g_lastDisplayState = false;  // Track last external mouse connection state
 
 // Forward declarations
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -35,7 +35,7 @@ bool IsStartupEnabled();
 bool SetStartupEnabled(bool enable);
 bool IsAutoSwitchEnabled();
 bool SetAutoSwitchEnabled(bool enable);
-bool IsUsingLaptopScreenOnly();
+bool IsExternalMouseConnected();
 void CheckAndApplyAutoSwitch();
 void StartAutoSwitchMonitoring(HWND hwnd);
 void StopAutoSwitchMonitoring(HWND hwnd);
@@ -97,7 +97,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // Start auto-switch monitoring if enabled
             if (IsAutoSwitchEnabled()) {
                 // Initialize to opposite state to force initial application
-                g_lastDisplayState = !IsUsingLaptopScreenOnly();
+                g_lastDisplayState = !IsExternalMouseConnected();
                 StartAutoSwitchMonitoring(hwnd);
                 CheckAndApplyAutoSwitch();  // Apply immediately (will detect change and apply)
             }
@@ -362,8 +362,6 @@ INT_PTR CALLBACK OptionsDialogProc(HWND hwndDlg, UINT msg, WPARAM wParam, LPARAM
                     } else {
                         // Start or stop monitoring based on setting
                         if (autoSwitchEnabled) {
-                            // Initialize to opposite state to force initial application
-                            g_lastDisplayState = !IsUsingLaptopScreenOnly();
                             StartAutoSwitchMonitoring(g_hwndMain);
                             CheckAndApplyAutoSwitch();  // Apply immediately (will detect change and apply)
                         } else {
@@ -435,30 +433,54 @@ bool SetAutoSwitchEnabled(bool enable) {
     return success;
 }
 
-// Check if only using laptop screen (no external displays)
-bool IsUsingLaptopScreenOnly() {
-    // Get the number of display monitors
-    int monitorCount = GetSystemMetrics(SM_CMONITORS);
+// Check if an external mouse is connected
+bool IsExternalMouseConnected() {
+    // Get the number of raw input devices
+    UINT numDevices = 0;
+    if (GetRawInputDeviceList(NULL, &numDevices, sizeof(RAWINPUTDEVICELIST)) != 0) {
+        return false;  // Error getting device count
+    }
 
-    // If we have exactly 1 monitor, assume it's the laptop screen only
-    // If we have 0 or >1 monitors, external display is connected or lid is closed
-    return (monitorCount == 1);
+    if (numDevices == 0) {
+        return false;  // No devices
+    }
+
+    // Allocate buffer for device list
+    RAWINPUTDEVICELIST* deviceList = new RAWINPUTDEVICELIST[numDevices];
+    if (GetRawInputDeviceList(deviceList, &numDevices, sizeof(RAWINPUTDEVICELIST)) == (UINT)-1) {
+        delete[] deviceList;
+        return false;  // Error getting device list
+    }
+
+    // Count mouse devices
+    int mouseCount = 0;
+    for (UINT i = 0; i < numDevices; i++) {
+        if (deviceList[i].dwType == RIM_TYPEMOUSE) {
+            mouseCount++;
+        }
+    }
+
+    delete[] deviceList;
+
+    // If we have 2+ mouse devices, at least one is external
+    // If we have only 1, it's likely just the trackpad
+    return (mouseCount >= 2);
 }
 
-// Check display state and apply appropriate mouse configuration
+// Check if external mouse is connected and apply appropriate mouse configuration
 void CheckAndApplyAutoSwitch() {
-    bool laptopScreenOnly = IsUsingLaptopScreenOnly();
+    bool externalMouseConnected = IsExternalMouseConnected();
 
     // Only switch if the state has changed to avoid unnecessary operations
-    if (laptopScreenOnly != g_lastDisplayState) {
-        g_lastDisplayState = laptopScreenOnly;
+    if (externalMouseConnected != g_lastDisplayState) {
+        g_lastDisplayState = externalMouseConnected;
 
-        if (laptopScreenOnly) {
-            // Laptop screen only (lid open, no external display) → Right-handed
-            SwapMouseButton(FALSE);
-        } else {
-            // External display connected or lid closed → Left-handed
+        if (externalMouseConnected) {
+            // External mouse connected → Left-handed
             SwapMouseButton(TRUE);
+        } else {
+            // Only trackpad (no external mouse) → Right-handed
+            SwapMouseButton(FALSE);
         }
 
         // Update tray icon to reflect new state

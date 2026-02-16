@@ -1,4 +1,4 @@
-# MouseFlip
+# Primary
 
 A lightweight Windows system tray application that allows you to quickly toggle mouse button configuration between right-handed and left-handed modes.
 
@@ -6,11 +6,11 @@ A lightweight Windows system tray application that allows you to quickly toggle 
 
 ## Features
 
-- **Quick Toggle**: Double-click the tray icon with either mouse button to instantly flip mouse buttons
+- **Quick Toggle**: Double-click the tray icon with either mouse button to instantly swap mouse buttons
 - **Visual Feedback**: Icon changes to reflect current mouse orientation
-- **Auto-Switch**: Automatically switches mouse orientation based on display configuration
-  - Right-handed when using laptop screen only
-  - Left-handed when external display connected or lid closed
+- **Auto-Switch**: Automatically switches mouse orientation based on external mouse detection
+  - Right-handed when using trackpad only (no external mouse)
+  - Left-handed when external mouse is connected
 - **Startup with Windows**: Optional setting to launch automatically when Windows starts
 - **Context Menu**: Right-click for menu with orientation options, settings, about dialog, and exit
 - **Lightweight**: Minimal resource usage, runs silently in system tray
@@ -50,7 +50,7 @@ On other distributions, install the equivalent `mingw-w64` package.
 
 1. **Clone or navigate to the project directory**
    ```bash
-   cd mouseflip
+   cd primary
    ```
 
 2. **Run the build script**
@@ -62,7 +62,7 @@ On other distributions, install the equivalent `mingw-w64` package.
    - Check for MinGW-w64 installation
    - Compile resources with `windres`
    - Compile and link with `x86_64-w64-mingw32-g++`
-   - Create `mouseflip.exe` in the project root
+   - Create `Primary.exe` in the project root
 
 ### Manual Build Commands
 
@@ -70,14 +70,14 @@ If you need to build manually:
 
 ```bash
 # Compile resources
-x86_64-w64-mingw32-windres resources/mouseflip.rc -O coff -o resources/mouseflip.res
+x86_64-w64-mingw32-windres resources/primary.rc -O coff -o resources/primary.res
 
 # Compile and link
 x86_64-w64-mingw32-g++ -std=c++11 -Wall -Wextra -DUNICODE -D_UNICODE \
      -mwindows \
-     src/mouseflip.cpp \
-     resources/mouseflip.res \
-     -o mouseflip.exe \
+     src/primary.cpp \
+     resources/primary.res \
+     -o Primary.exe \
      -luser32 -lshell32 -static-libgcc -static-libstdc++
 ```
 
@@ -85,8 +85,8 @@ x86_64-w64-mingw32-g++ -std=c++11 -Wall -Wextra -DUNICODE -D_UNICODE \
 
 ### Running the Application
 
-1. Transfer `mouseflip.exe` to your Windows machine (or run via Wine on Linux)
-2. Double-click `mouseflip.exe`
+1. Transfer `Primary.exe` to your Windows machine (or run via Wine on Linux)
+2. Double-click `Primary.exe`
 3. The application icon will appear in your system tray (notification area)
 
 ### Operations
@@ -104,16 +104,16 @@ x86_64-w64-mingw32-g++ -std=c++11 -Wall -Wextra -DUNICODE -D_UNICODE \
 Access the Options dialog by right-clicking the tray icon and selecting "Options...":
 
 **Startup Settings:**
-- **Start MouseFlip when Windows starts**: Enable this checkbox to automatically launch MouseFlip when you log in to Windows. The setting is stored in the Windows registry (HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run)
+- **Start Primary when Windows starts**: Enable this checkbox to automatically launch Primary when you log in to Windows. The setting is stored in the Windows registry (HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run)
 
 **Auto-Switch Settings:**
-- **Auto-switch based on display configuration**: (**Enabled by default**) Automatically switches mouse orientation based on your display setup:
-  - **Right-handed mode**: When using only your laptop screen (lid open, no external displays)
-  - **Left-handed mode**: When an external display is connected OR when the laptop lid is closed
-  - The application monitors your display configuration every 2 seconds and switches automatically
-  - Useful for users who prefer different orientations when docked vs. mobile
+- **Auto-switch based on external mouse detection**: (**Enabled by default**) Automatically switches mouse orientation based on connected pointing devices:
+  - **Right-handed mode**: When using only the trackpad (no external mouse detected)
+  - **Left-handed mode**: When an external mouse is connected
+  - The application monitors connected input devices every 2 seconds and switches automatically
+  - Useful for users who prefer different orientations when using external mouse vs. trackpad
   - **To disable**: Simply uncheck this box in the Options dialog if you prefer manual control
-  - Settings stored in HKEY_CURRENT_USER\Software\MouseFlip
+  - Settings stored in HKEY_CURRENT_USER\Software\Primary
 
 ### What Gets Changed
 
@@ -125,11 +125,11 @@ When you flip the mouse orientation:
 ## Project Structure
 
 ```
-mouseflip/
+primary/
 ├── src/
-│   └── mouseflip.cpp          # Main application source
+│   └── primary.cpp          # Main application source
 ├── resources/
-│   ├── mouseflip.rc           # Resource definition file
+│   ├── primary.rc           # Resource definition file
 │   ├── resource.h             # Resource ID constants
 │   ├── app_icon.ico           # Application icon
 │   ├── icon_right.ico         # Right-handed mouse icon
@@ -151,6 +151,7 @@ mouseflip/
 - `Shell_NotifyIcon()`: System tray icon management
 - `SwapMouseButton()`: Toggle mouse button configuration
 - `GetSystemMetrics(SM_SWAPBUTTON)`: Query current mouse state
+- `GetRawInputDeviceList()`: Enumerate connected input devices for external mouse detection
 - `CreatePopupMenu()`, `TrackPopupMenu()`: Context menu
 - Standard window management APIs
 
@@ -220,5 +221,5 @@ Feel free to fork and modify the code for your needs. Suggestions for improvemen
 
 ## Credits
 
-Developed as a utility application for quick mouse button configuration changes.
+Primary - A utility application for quick mouse button configuration changes.
 Built with MinGW-w64 cross-compiler on Linux.

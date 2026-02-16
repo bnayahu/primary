@@ -2,14 +2,14 @@
 
 <#
 .SYNOPSIS
-    MouseFlip - Toggle mouse button configuration via system tray
+    Primary - Toggle mouse button configuration via system tray
 .DESCRIPTION
     A system tray application that allows quick toggling between right-handed
-    and left-handed mouse configurations. Features auto-switch based on display
-    configuration and startup with Windows option.
+    and left-handed mouse configurations. Features auto-switch based on external
+    mouse detection and startup with Windows option.
 .NOTES
     Version: 1.0
-    Author: MouseFlip
+    Author: Primary
 #>
 
 # Ensure we're running with proper UI thread apartment state
@@ -31,16 +31,28 @@ public class Win32 {
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
+    [DllImport("user32.dll")]
+    public static extern uint GetRawInputDeviceList(
+        [In, Out] RAWINPUTDEVICELIST[] pRawInputDeviceList,
+        ref uint puiNumDevices,
+        uint cbSize);
+
     public const int SM_SWAPBUTTON = 23;
-    public const int SM_CMONITORS = 80;
+    public const int RIM_TYPEMOUSE = 0;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct RAWINPUTDEVICELIST {
+    public IntPtr hDevice;
+    public uint dwType;
 }
 "@
 
 # Script configuration
-$script:AppName = "MouseFlip"
+$script:AppName = "Primary"
 $script:AppVersion = "1.0"
 $script:RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$script:SettingsPath = "HKCU:\Software\MouseFlip"
+$script:SettingsPath = "HKCU:\Software\Primary"
 $script:ScriptPath = $PSCommandPath
 $script:ScriptDir = Split-Path -Parent $PSCommandPath
 
@@ -55,7 +67,7 @@ $script:IconPaths = @{
 $script:NotifyIcon = $null
 $script:ContextMenu = $null
 $script:AutoSwitchTimer = $null
-$script:LastDisplayState = $null
+$script:LastDisplayState = $null  # Track last external mouse connection state
 $script:LastClickTime = 0
 $script:ClickCount = 0
 
@@ -111,20 +123,49 @@ function Update-TrayIcon {
     }
 }
 
-function Get-MonitorCount {
+function Test-ExternalMouseConnected {
     <#
     .SYNOPSIS
-        Get number of active monitors
+        Check if an external mouse is connected
+    .DESCRIPTION
+        Uses GetRawInputDeviceList to enumerate input devices.
+        Returns true if 2 or more mouse devices are detected (trackpad + external).
+        Returns false if only 1 mouse device (trackpad only).
     #>
-    return [Win32]::GetSystemMetrics([Win32]::SM_CMONITORS)
-}
+    try {
+        # First call to get device count
+        [uint32]$numDevices = 0
+        [uint32]$structSize = [Runtime.InteropServices.Marshal]::SizeOf([Type][RAWINPUTDEVICELIST])
 
-function Test-LaptopScreenOnly {
-    <#
-    .SYNOPSIS
-        Check if only laptop screen is active (no external displays)
-    #>
-    return (Get-MonitorCount -eq 1)
+        $result = [Win32]::GetRawInputDeviceList($null, [ref]$numDevices, $structSize)
+
+        if ($numDevices -eq 0) {
+            return $false
+        }
+
+        # Create array and get device list
+        $deviceList = New-Object RAWINPUTDEVICELIST[] $numDevices
+        $result = [Win32]::GetRawInputDeviceList($deviceList, [ref]$numDevices, $structSize)
+
+        if ($result -eq [uint32]::MaxValue) {
+            return $false  # Error occurred
+        }
+
+        # Count mouse devices
+        $mouseCount = 0
+        foreach ($device in $deviceList) {
+            if ($device.dwType -eq [Win32]::RIM_TYPEMOUSE) {
+                $mouseCount++
+            }
+        }
+
+        # If we have 2+ mouse devices, at least one is external
+        return ($mouseCount -ge 2)
+    }
+    catch {
+        # On error, assume no external mouse
+        return $false
+    }
 }
 
 function Get-StartupEnabled {
@@ -201,7 +242,7 @@ function Set-AutoSwitchEnabled {
 function Start-AutoSwitchMonitoring {
     <#
     .SYNOPSIS
-        Start monitoring display configuration for auto-switch
+        Start monitoring for external mouse connection/disconnection
     #>
     if ($null -eq $script:AutoSwitchTimer) {
         $script:AutoSwitchTimer = New-Object System.Windows.Forms.Timer
@@ -210,7 +251,7 @@ function Start-AutoSwitchMonitoring {
         $script:AutoSwitchTimer.Start()
 
         # Initialize last state to opposite of current to force initial switch
-        $script:LastDisplayState = !(Test-LaptopScreenOnly)
+        $script:LastDisplayState = !(Test-ExternalMouseConnected)
         Invoke-AutoSwitch
     }
 }
@@ -218,7 +259,7 @@ function Start-AutoSwitchMonitoring {
 function Stop-AutoSwitchMonitoring {
     <#
     .SYNOPSIS
-        Stop monitoring display configuration
+        Stop monitoring for external mouse connection/disconnection
     #>
     if ($null -ne $script:AutoSwitchTimer) {
         $script:AutoSwitchTimer.Stop()
@@ -230,20 +271,20 @@ function Stop-AutoSwitchMonitoring {
 function Invoke-AutoSwitch {
     <#
     .SYNOPSIS
-        Check display state and apply appropriate mouse configuration
+        Check if external mouse is connected and apply appropriate mouse configuration
     #>
-    $laptopScreenOnly = Test-LaptopScreenOnly
+    $externalMouseConnected = Test-ExternalMouseConnected
 
     # Only switch if state has changed
-    if ($laptopScreenOnly -ne $script:LastDisplayState) {
-        $script:LastDisplayState = $laptopScreenOnly
+    if ($externalMouseConnected -ne $script:LastDisplayState) {
+        $script:LastDisplayState = $externalMouseConnected
 
-        if ($laptopScreenOnly) {
-            # Laptop screen only → Right-handed
-            Set-MouseButtonState -LeftHanded $false
-        } else {
-            # External display connected or lid closed → Left-handed
+        if ($externalMouseConnected) {
+            # External mouse connected → Left-handed
             Set-MouseButtonState -LeftHanded $true
+        } else {
+            # Only trackpad (no external mouse) → Right-handed
+            Set-MouseButtonState -LeftHanded $false
         }
 
         Update-TrayIcon
@@ -346,7 +387,7 @@ function Show-OptionsDialog {
     $autoSwitchCheck = New-Object System.Windows.Forms.CheckBox
     $autoSwitchCheck.Location = New-Object System.Drawing.Point(20, 60)
     $autoSwitchCheck.Size = New-Object System.Drawing.Size(400, 30)
-    $autoSwitchCheck.Text = "Auto-switch based on display configuration (Enabled by default)"
+    $autoSwitchCheck.Text = "Auto-switch based on external mouse detection (Enabled by default)"
     $autoSwitchCheck.Checked = Get-AutoSwitchEnabled
     $form.Controls.Add($autoSwitchCheck)
 
@@ -354,7 +395,7 @@ function Show-OptionsDialog {
     $descLabel = New-Object System.Windows.Forms.Label
     $descLabel.Location = New-Object System.Drawing.Point(40, 90)
     $descLabel.Size = New-Object System.Drawing.Size(380, 50)
-    $descLabel.Text = "Right-handed when using laptop screen only`nLeft-handed when external display connected or lid closed"
+    $descLabel.Text = "Right-handed when using trackpad only (no external mouse)`nLeft-handed when external mouse is connected"
     $descLabel.ForeColor = [System.Drawing.Color]::Gray
     $form.Controls.Add($descLabel)
 

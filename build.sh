@@ -2,7 +2,7 @@
 
 set -e  # Exit on error
 
-echo "Building MouseFlip with MinGW-w64..."
+echo "Building Primary with MinGW-w64..."
 
 # MinGW-w64 cross-compiler tools
 WINDRES="x86_64-w64-mingw32-windres"
@@ -17,15 +17,15 @@ fi
 
 # Compile resources
 echo "Compiling resources..."
-$WINDRES resources/mouseflip.rc -O coff -o resources/mouseflip.res
+$WINDRES resources/primary.rc -O coff -o resources/primary.res
 
 # Compile and link
 echo "Compiling application..."
 $GCC -std=c++11 -Wall -Wextra -Wno-unused-parameter -DUNICODE -D_UNICODE \
      -mwindows -municode \
-     src/mouseflip.cpp \
-     resources/mouseflip.res \
-     -o mouseflip.exe \
+     src/primary.cpp \
+     resources/primary.res \
+     -o Primary.exe \
      -luser32 -lshell32 -static-libgcc -static-libstdc++
 
-echo "Build successful! Output: mouseflip.exe"
+echo "Build successful! Output: Primary.exe"

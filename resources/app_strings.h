@@ -8,7 +8,7 @@
 #define WIDEN(x) WIDEN2(x)
 
 // Base application name (single source of truth)
-#define APP_NAME_BASE MouseFlip
+#define APP_NAME_BASE Primary
 
 // Application name in different formats
 #define APP_NAME_A                      STRINGIFY(APP_NAME_BASE)  // ANSI version
