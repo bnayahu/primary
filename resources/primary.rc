@@ -8,7 +8,7 @@ IDI_ICON_LEFT  ICON "icon_left.ico"
 IDI_ICON_APP   ICON "app_icon.ico"
 
 // Options Dialog
-IDD_OPTIONS DIALOG 0, 0, 260, 160
+IDD_OPTIONS DIALOG 0, 0, 260, 220
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION APP_OPTIONS_DIALOG_CAPTION
 FONT 8, "MS Sans Serif"
@@ -20,8 +20,14 @@ BEGIN
     LTEXT           "* Right-handed when using trackpad only", -1, 25, 82, 220, 10
     LTEXT           "* Left-handed when external mouse connected", -1, 25, 95, 220, 10
     LTEXT           "", -1, 25, 108, 220, 10
-    DEFPUSHBUTTON   "OK", IDOK, 70, 140, 50, 14
-    PUSHBUTTON      "Cancel", IDCANCEL, 140, 140, 50, 14
+    GROUPBOX        "Mouse Device Configuration", -1, 7, 137, 246, 55
+    LTEXT           "Currently detected devices:", -1, 15, 152, 100, 10
+    LTEXT           "0", IDC_DETECTED_DEVICES_LABEL, 120, 152, 30, 10
+    LTEXT           "Base device count (undocked):", IDC_BASE_DEVICES_LABEL, 15, 167, 105, 10
+    EDITTEXT        IDC_BASE_DEVICES_EDIT, 120, 165, 30, 12, ES_NUMBER
+    LTEXT           "(devices above this count are considered external)", -1, 15, 180, 230, 10
+    DEFPUSHBUTTON   "OK", IDOK, 70, 200, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 140, 200, 50, 14
 END
 
 // About Dialog

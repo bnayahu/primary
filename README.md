@@ -115,6 +115,14 @@ Access the Options dialog by right-clicking the tray icon and selecting "Options
   - **To disable**: Simply uncheck this box in the Options dialog if you prefer manual control
   - Settings stored in HKEY_CURRENT_USER\Software\Primary
 
+**Mouse Device Configuration:**
+- **Currently detected devices**: Shows the real-time count of mouse devices detected by the system
+- **Base device count (undocked)**: Configure how many mouse devices are present in your bare configuration (typically 1 for a single trackpad, but some systems have 2 built-in mouse devices)
+  - Devices above this count are considered external mice
+  - This setting allows the auto-switch feature to work correctly on systems with multiple built-in pointing devices
+  - Default value is 1
+  - Stored in HKEY_CURRENT_USER\Software\Primary
+
 ### What Gets Changed
 
 When you flip the mouse orientation:

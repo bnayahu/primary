@@ -15,6 +15,9 @@
 #define IDC_AUTOSWITCH_CHECKBOX     2002
 #define IDC_ABOUT_ICON              2003
 #define IDC_ABOUT_TEXT              2004
+#define IDC_DETECTED_DEVICES_LABEL  2005
+#define IDC_BASE_DEVICES_EDIT       2006
+#define IDC_BASE_DEVICES_LABEL      2007
 
 // Menu item IDs
 #define IDM_RIGHTHANDED             1001
