@@ -123,14 +123,14 @@ function Update-TrayIcon {
     }
 }
 
-function Test-ExternalMouseConnected {
+function Get-CurrentMouseDeviceCount {
     <#
     .SYNOPSIS
-        Check if an external mouse is connected
+        Get the current number of mouse devices detected
     .DESCRIPTION
-        Uses GetRawInputDeviceList to enumerate input devices.
-        Returns true if 2 or more mouse devices are detected (trackpad + external).
-        Returns false if only 1 mouse device (trackpad only).
+        Uses GetRawInputDeviceList to enumerate input devices and count mice.
+    .OUTPUTS
+        [int] Number of mouse devices detected
     #>
     try {
         # First call to get device count
@@ -140,7 +140,7 @@ function Test-ExternalMouseConnected {
         $result = [Win32]::GetRawInputDeviceList($null, [ref]$numDevices, $structSize)
 
         if ($numDevices -eq 0) {
-            return $false
+            return 0
         }
 
         # Create array and get device list
@@ -148,7 +148,7 @@ function Test-ExternalMouseConnected {
         $result = [Win32]::GetRawInputDeviceList($deviceList, [ref]$numDevices, $structSize)
 
         if ($result -eq [uint32]::MaxValue) {
-            return $false  # Error occurred
+            return 0  # Error occurred
         }
 
         # Count mouse devices
@@ -159,13 +159,77 @@ function Test-ExternalMouseConnected {
             }
         }
 
-        # If we have 2+ mouse devices, at least one is external
-        return ($mouseCount -ge 2)
+        return $mouseCount
     }
     catch {
-        # On error, assume no external mouse
+        return 0
+    }
+}
+
+function Get-BaseMouseCount {
+    <#
+    .SYNOPSIS
+        Get base mouse device count (default: 1)
+    .DESCRIPTION
+        Gets the configured base mouse count from registry.
+        This is the number of mouse devices in bare/undocked configuration.
+    .OUTPUTS
+        [int] Base mouse device count
+    #>
+    try {
+        if (!(Test-Path $script:SettingsPath)) {
+            return 1  # Default to 1
+        }
+        $value = Get-ItemProperty -Path $script:SettingsPath -Name "BaseMouseCount" -ErrorAction SilentlyContinue
+        if ($null -eq $value) {
+            return 1  # Default to 1
+        }
+        $count = [int]$value.BaseMouseCount
+        return ($count -gt 0 ? $count : 1)
+    } catch {
+        return 1  # Default to 1
+    }
+}
+
+function Set-BaseMouseCount {
+    <#
+    .SYNOPSIS
+        Set base mouse device count
+    .PARAMETER Count
+        Base mouse device count (must be >= 1)
+    .OUTPUTS
+        [bool] True if successful, false otherwise
+    #>
+    param([int]$Count)
+
+    if ($Count -lt 1) {
+        return $false  # Invalid count
+    }
+
+    try {
+        if (!(Test-Path $script:SettingsPath)) {
+            New-Item -Path $script:SettingsPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $script:SettingsPath -Name "BaseMouseCount" -Value $Count -Type DWord
+        return $true
+    } catch {
         return $false
     }
+}
+
+function Test-ExternalMouseConnected {
+    <#
+    .SYNOPSIS
+        Check if an external mouse is connected
+    .DESCRIPTION
+        Compares current mouse device count against configured base count.
+        Returns true if current count exceeds base count (external mouse present).
+    #>
+    $currentCount = Get-CurrentMouseDeviceCount
+    $baseCount = Get-BaseMouseCount
+
+    # If current count exceeds base count, we have external mouse(s)
+    return ($currentCount -gt $baseCount)
 }
 
 function Get-StartupEnabled {
@@ -190,13 +254,27 @@ function Set-StartupEnabled {
 
     try {
         if ($Enable) {
+            # Add to startup
+            # Ensure registry path exists
+            if (!(Test-Path $script:RegistryPath)) {
+                return $false
+            }
             # Build PowerShell command that will run this script
             $command = "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script:ScriptPath`""
             Set-ItemProperty -Path $script:RegistryPath -Name $script:AppName -Value $command -Type String
+            return $true
         } else {
+            # Remove from startup
+            # Check if registry path exists
+            if (!(Test-Path $script:RegistryPath)) {
+                # Path doesn't exist, so value definitely doesn't exist - success
+                return $true
+            }
+            # Try to remove the value (ignore error if it doesn't exist)
             Remove-ItemProperty -Path $script:RegistryPath -Name $script:AppName -ErrorAction SilentlyContinue
+            # Always return true for removal, since non-existence is the desired state
+            return $true
         }
-        return $true
     } catch {
         return $false
     }
@@ -364,7 +442,7 @@ function Show-OptionsDialog {
     #>
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "$script:AppName Options"
-    $form.Size = New-Object System.Drawing.Size(450, 220)
+    $form.Size = New-Object System.Drawing.Size(450, 340)
     $form.StartPosition = "CenterScreen"
     $form.FormBorderStyle = "FixedDialog"
     $form.MaximizeBox = $false
@@ -375,33 +453,99 @@ function Show-OptionsDialog {
         $form.Icon = [System.Drawing.Icon]::new($script:IconPaths.App)
     }
 
+    # Startup GroupBox
+    $startupGroup = New-Object System.Windows.Forms.GroupBox
+    $startupGroup.Location = New-Object System.Drawing.Point(10, 10)
+    $startupGroup.Size = New-Object System.Drawing.Size(410, 50)
+    $startupGroup.Text = "Startup"
+    $form.Controls.Add($startupGroup)
+
     # Startup checkbox
     $startupCheck = New-Object System.Windows.Forms.CheckBox
-    $startupCheck.Location = New-Object System.Drawing.Point(20, 20)
-    $startupCheck.Size = New-Object System.Drawing.Size(400, 30)
+    $startupCheck.Location = New-Object System.Drawing.Point(10, 20)
+    $startupCheck.Size = New-Object System.Drawing.Size(390, 20)
     $startupCheck.Text = "Start $script:AppName when Windows starts"
     $startupCheck.Checked = Get-StartupEnabled
-    $form.Controls.Add($startupCheck)
+    $startupGroup.Controls.Add($startupCheck)
+
+    # Auto-switch GroupBox
+    $autoSwitchGroup = New-Object System.Windows.Forms.GroupBox
+    $autoSwitchGroup.Location = New-Object System.Drawing.Point(10, 70)
+    $autoSwitchGroup.Size = New-Object System.Drawing.Size(410, 100)
+    $autoSwitchGroup.Text = "Auto-Switch"
+    $form.Controls.Add($autoSwitchGroup)
 
     # Auto-switch checkbox
     $autoSwitchCheck = New-Object System.Windows.Forms.CheckBox
-    $autoSwitchCheck.Location = New-Object System.Drawing.Point(20, 60)
-    $autoSwitchCheck.Size = New-Object System.Drawing.Size(400, 30)
-    $autoSwitchCheck.Text = "Auto-switch based on external mouse detection (Enabled by default)"
+    $autoSwitchCheck.Location = New-Object System.Drawing.Point(10, 20)
+    $autoSwitchCheck.Size = New-Object System.Drawing.Size(390, 20)
+    $autoSwitchCheck.Text = "Auto-switch based on external mouse detection"
     $autoSwitchCheck.Checked = Get-AutoSwitchEnabled
-    $form.Controls.Add($autoSwitchCheck)
+    $autoSwitchGroup.Controls.Add($autoSwitchCheck)
 
-    # Description label
-    $descLabel = New-Object System.Windows.Forms.Label
-    $descLabel.Location = New-Object System.Drawing.Point(40, 90)
-    $descLabel.Size = New-Object System.Drawing.Size(380, 50)
-    $descLabel.Text = "Right-handed when using trackpad only (no external mouse)`nLeft-handed when external mouse is connected"
-    $descLabel.ForeColor = [System.Drawing.Color]::Gray
-    $form.Controls.Add($descLabel)
+    # Auto-switch description
+    $autoSwitchDesc1 = New-Object System.Windows.Forms.Label
+    $autoSwitchDesc1.Location = New-Object System.Drawing.Point(25, 45)
+    $autoSwitchDesc1.Size = New-Object System.Drawing.Size(370, 20)
+    $autoSwitchDesc1.Text = "* Right-handed when using trackpad only"
+    $autoSwitchDesc1.ForeColor = [System.Drawing.Color]::Gray
+    $autoSwitchGroup.Controls.Add($autoSwitchDesc1)
+
+    $autoSwitchDesc2 = New-Object System.Windows.Forms.Label
+    $autoSwitchDesc2.Location = New-Object System.Drawing.Point(25, 65)
+    $autoSwitchDesc2.Size = New-Object System.Drawing.Size(370, 20)
+    $autoSwitchDesc2.Text = "* Left-handed when external mouse connected"
+    $autoSwitchDesc2.ForeColor = [System.Drawing.Color]::Gray
+    $autoSwitchGroup.Controls.Add($autoSwitchDesc2)
+
+    # Mouse Device Configuration GroupBox
+    $deviceGroup = New-Object System.Windows.Forms.GroupBox
+    $deviceGroup.Location = New-Object System.Drawing.Point(10, 180)
+    $deviceGroup.Size = New-Object System.Drawing.Size(410, 85)
+    $deviceGroup.Text = "Mouse Device Configuration"
+    $form.Controls.Add($deviceGroup)
+
+    # Currently detected devices label
+    $detectedLabel = New-Object System.Windows.Forms.Label
+    $detectedLabel.Location = New-Object System.Drawing.Point(10, 25)
+    $detectedLabel.Size = New-Object System.Drawing.Size(180, 20)
+    $detectedLabel.Text = "Currently detected devices:"
+    $deviceGroup.Controls.Add($detectedLabel)
+
+    # Currently detected devices value
+    $detectedValue = New-Object System.Windows.Forms.Label
+    $detectedValue.Location = New-Object System.Drawing.Point(195, 25)
+    $detectedValue.Size = New-Object System.Drawing.Size(40, 20)
+    $detectedValue.Text = (Get-CurrentMouseDeviceCount).ToString()
+    $detectedValue.Font = New-Object System.Drawing.Font($detectedValue.Font, [System.Drawing.FontStyle]::Bold)
+    $deviceGroup.Controls.Add($detectedValue)
+
+    # Base device count label
+    $baseLabel = New-Object System.Windows.Forms.Label
+    $baseLabel.Location = New-Object System.Drawing.Point(10, 45)
+    $baseLabel.Size = New-Object System.Drawing.Size(180, 20)
+    $baseLabel.Text = "Base device count (undocked):"
+    $deviceGroup.Controls.Add($baseLabel)
+
+    # Base device count textbox
+    $baseCountBox = New-Object System.Windows.Forms.TextBox
+    $baseCountBox.Location = New-Object System.Drawing.Point(195, 43)
+    $baseCountBox.Size = New-Object System.Drawing.Size(40, 20)
+    $baseCountBox.Text = (Get-BaseMouseCount).ToString()
+    $baseCountBox.MaxLength = 2
+    $deviceGroup.Controls.Add($baseCountBox)
+
+    # Description label for base count
+    $baseDesc = New-Object System.Windows.Forms.Label
+    $baseDesc.Location = New-Object System.Drawing.Point(10, 65)
+    $baseDesc.Size = New-Object System.Drawing.Size(390, 15)
+    $baseDesc.Text = "(devices above this count are considered external)"
+    $baseDesc.ForeColor = [System.Drawing.Color]::Gray
+    $deviceGroup.Controls.Add($baseDesc)
 
     # OK Button
     $okButton = New-Object System.Windows.Forms.Button
-    $okButton.Location = New-Object System.Drawing.Point(240, 150)
+    $okButton.Location = New-Object System.Drawing.Point(240, 275)
     $okButton.Size = New-Object System.Drawing.Size(90, 30)
     $okButton.Text = "OK"
     $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
@@ -409,7 +553,7 @@ function Show-OptionsDialog {
 
     # Cancel Button
     $cancelButton = New-Object System.Windows.Forms.Button
-    $cancelButton.Location = New-Object System.Drawing.Point(340, 150)
+    $cancelButton.Location = New-Object System.Drawing.Point(340, 275)
     $cancelButton.Size = New-Object System.Drawing.Size(90, 30)
     $cancelButton.Text = "Cancel"
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
@@ -421,6 +565,20 @@ function Show-OptionsDialog {
     $result = $form.ShowDialog()
 
     if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        # Get base mouse count from textbox
+        $baseCountText = $baseCountBox.Text.Trim()
+        $baseCount = 0
+        if (![int]::TryParse($baseCountText, [ref]$baseCount) -or $baseCount -lt 1) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Base device count must be at least 1.",
+                "Invalid Input",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            $form.Dispose()
+            return
+        }
+
         # Apply startup setting
         if (!(Set-StartupEnabled $startupCheck.Checked)) {
             [System.Windows.Forms.MessageBox]::Show(
@@ -446,6 +604,21 @@ function Show-OptionsDialog {
                 Start-AutoSwitchMonitoring
             } else {
                 Stop-AutoSwitchMonitoring
+            }
+        }
+
+        # Apply base mouse count setting
+        if (!(Set-BaseMouseCount $baseCount)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed to update base mouse count. Please check your permissions.",
+                "Error",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Error
+            )
+        } else {
+            # Re-check if auto-switch is enabled, to apply new settings immediately
+            if ($autoSwitchEnabled) {
+                Invoke-AutoSwitch
             }
         }
     }
