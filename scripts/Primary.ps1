@@ -552,7 +552,7 @@ function Initialize-TrayIcon {
 
 #region Main Execution
 
-function Start-MouseFlip {
+function Start-Primary {
     <#
     .SYNOPSIS
         Main entry point
@@ -590,6 +590,6 @@ function Start-MouseFlip {
 }
 
 # Run the application
-Start-MouseFlip
+Start-Primary
 
 #endregion
