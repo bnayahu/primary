@@ -118,8 +118,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 case WM_LBUTTONDBLCLK:
                 case WM_RBUTTONDBLCLK:
                     // Double-click (either button): flip mouse orientation
-                    FlipMouseOrientation();
-                    UpdateTrayIcon(hwnd, GetIconForCurrentState());
+                    {
+                        bool currentState = GetCurrentMouseState();
+                        SwapMouseButton(!currentState);
+                        // Use the new state directly instead of reading system state again
+                        UINT newIconID = (!currentState) ? IDI_ICON_LEFT : IDI_ICON_RIGHT;
+                        UpdateTrayIcon(hwnd, newIconID);
+                    }
                     break;
 
                 case WM_RBUTTONUP:
